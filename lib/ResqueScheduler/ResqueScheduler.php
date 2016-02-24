@@ -166,6 +166,34 @@ class ResqueScheduler
     }
 
     /**
+     * removed a delayed job queued for a specific timestamp
+     *
+     * @param $timestamp
+     * @param $queue
+     * @param $id
+     * @return mixed
+     */
+    public static function removeDelayedJobIdFromTimestamp($timestamp, $queue, $id)
+    {
+        $redis = \Resque::redis();
+        $key = self::QUEUE_NAME . ':' . self::getTimestamp($timestamp);
+
+        $count = $redis->llen($key);
+
+        for ($i = 0; $i < $count; ++$i) {
+            $encodedItem = $redis->lget($key, $i);
+            $item = json_decode($encodedItem);
+            if ($item->args[0]->id == $id) {
+                $removeCount = $redis->lrem($key, $encodedItem);
+                self::cleanupTimestamp($key, $timestamp);
+                return $removeCount;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
      * Generate hash of all job properties to be saved in the scheduled queue.
      *
      * @param string $queue Name of the queue the job will be placed on.
